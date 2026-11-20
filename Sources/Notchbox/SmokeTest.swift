@@ -135,7 +135,8 @@ enum SmokeTest {
             }
         } else { notChecked("hover captures keyboard focus and accepts typing without a click") }
         movePointer(to: outside)
-        record("moving away hides the terminal even while it has keyboard focus", await wait { !controller.isPresented && !controller.panel.isVisible })
+        record("pointer exit begins hiding synchronously even with keyboard focus", !controller.isPresented)
+        record("auto-hide finishes the upward retraction", await wait { !controller.isPresented && !controller.panel.isVisible })
         if nativeFocusAvailable, let focusFixture {
             record("auto-hide restores the previous app and its focused text field", await wait { focusFixture.isFocused })
         } else { notChecked("auto-hide restores the previous app and its focused text field") }
@@ -152,14 +153,12 @@ enum SmokeTest {
         movePointer(to: outside)
         pointer = trigger
         record("hover rearms after leaving and reentering the notch", await wait { controller.isPresented })
-        // Re-entry during the grace period must cancel the pending collapse.
-        try? await Task.sleep(for: .milliseconds(300))
-        movePointer(to: inside)
         movePointer(to: outside)
-        try? await Task.sleep(for: .milliseconds(200))
+        record("pointer exit interrupts reveal without waiting for the opening animation", !controller.isPresented)
+        // Return immediately, without another outside sample after hide, to verify rearming.
+        movePointer(to: trigger)
+        record("returning to the notch can reopen during the closing slide", await wait { controller.isPresented })
         movePointer(to: inside)
-        try? await Task.sleep(for: .milliseconds(600))
-        record("returning to the panel cancels pending auto-hide", controller.isPresented)
         controller.hide(animated: false)
         movePointer(to: outside)
         controller.show(focus: true, animated: false)
@@ -173,7 +172,8 @@ enum SmokeTest {
         controller.pointerClicked(at: outside, window: nil)
         record("pinning keeps the panel open after an outside click", controller.isPresented && controller.isPinned)
         controller.togglePin()
-        record("unpinning outside the panel resumes auto-hide", await wait { !controller.isPresented && !controller.panel.isVisible })
+        record("unpinning outside the panel starts hiding synchronously", !controller.isPresented)
+        _ = await wait { !controller.panel.isVisible }
         movePointer(to: inside)
         controller.show(focus: true, animated: false)
         controller.pointerClicked(at: outside, window: nil)

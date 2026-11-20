@@ -40,7 +40,7 @@ final class TerminalSession: NSObject, LocalProcessTerminalViewDelegate {
         environment["TERM"] = "xterm-256color"
         environment["COLORTERM"] = "truecolor"
         environment["TERM_PROGRAM"] = "Notchbox"
-        environment["TERM_PROGRAM_VERSION"] = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.3"
+        environment["TERM_PROGRAM_VERSION"] = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.4"
         if environment["LANG"] == nil { environment["LANG"] = "en_US.UTF-8" }
         exitDescription = nil
         isRunning = true

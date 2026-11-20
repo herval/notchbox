@@ -19,7 +19,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate, NS
     private var hoverTargets: [(id: UInt32, screen: NSScreen, geometry: PanelGeometry)] = []
     var pointerLocation: () -> NSPoint = { NSEvent.mouseLocation }
     private let isSmokeTest = ProcessInfo.processInfo.arguments.contains("--smoke-test")
-    private var hideWork: DispatchWorkItem?
     private var activeScreen: NSScreen?
     private var anchors: [NSPanel] = []
     private var previousApplication: NSRunningApplication?
@@ -160,8 +159,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate, NS
     func show(focus: Bool, on screen: NSScreen? = nil, animated: Bool = true) {
         guard let screen = screen ?? activeScreen ?? preferredScreen else { return }
         activeScreen = screen
-        hideWork?.cancel()
-        hideWork = nil
         hoverActivation.reset()
         animationID += 1
         let wasPresented = isPresented
@@ -198,8 +195,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate, NS
 
     func hide(restoreFocus: Bool = true, animated: Bool = true) {
         guard isPresented, !presentingAlert else { return }
-        hideWork?.cancel()
-        hideWork = nil
         hoverActivation.suppressUntilExit()
         // Decide before ordering out or resigning key changes the foreground application.
         let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
@@ -328,6 +323,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate, NS
     @objc func togglePin() {
         isPinned.toggle()
         refresh()
+        if !isPinned && isPresented { pointerMoved(to: pointerLocation()) }
     }
     private func refresh() { root.update(sessions: orderedSessions, selected: selection.selected, pinned: isPinned) }
 
@@ -366,20 +362,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate, NS
             let inside = panel.frame.insetBy(dx: -8, dy: -8).contains(point)
             if inside { pointerEnteredPanel = true }
             // A keyboard reveal with the pointer elsewhere stays usable until its first pointer exit.
-            if isOpening || inside || !pointerEnteredPanel || isPinned || presentingAlert {
-                hideWork?.cancel()
-                hideWork = nil
-            } else if hideWork == nil {
-                let work = DispatchWorkItem { [weak self] in
-                    guard let self else { return }
-                    self.hideWork = nil
-                    guard self.isPresented, !self.isOpening, !self.isPinned, !self.presentingAlert,
-                          self.pointerEnteredPanel,
-                          !self.panel.frame.insetBy(dx: -8, dy: -8).contains(self.pointerLocation()) else { return }
-                    self.hide()
-                }
-                hideWork = work
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: work)
+            if !inside && pointerEnteredPanel && !isPinned && !presentingAlert {
+                hide()
+                // This exit already rearms hover, including a return during the closing slide.
+                hoverActivation.reset()
             }
         } else if hoverActivation.update(target: target?.id, at: ProcessInfo.processInfo.systemUptime), let target {
             show(focus: true, on: target.screen)
@@ -531,7 +517,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate, NS
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
         pointerTimer?.invalidate()
         slideCompletion?.cancel()
-        hideWork?.cancel()
         anchors.forEach { $0.close() }
     }
 }
