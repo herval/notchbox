@@ -15,7 +15,7 @@ open build/Notchbox.app
 
 The script creates a locally ad-hoc-signed app at `build/Notchbox.app`. Drag it into Applications if desired. It is a menu-bar app, so there is no Dock icon. The release build is for the Mac running the script. A public distribution still needs a Developer ID signature and notarization.
 
-For a faster development build, use `Scripts/build-app.sh debug`. To build an update without replacing a running app, pass a separate output path: `Scripts/build-app.sh release "$PWD/build/Notchbox-0.1.4.app"`. Quit the current app before opening the update; its terminal sessions end on Quit. You can also open `Package.swift` in Xcode and run the Notchbox executable scheme. `--background` launches without opening the panel.
+For a faster development build, use `Scripts/build-app.sh debug`. To build an update without replacing a running app, pass a separate output path: `Scripts/build-app.sh release "$PWD/build/Notchbox-0.1.5.app"`. Quit the current app before opening the update; its terminal sessions end on Quit. You can also open `Package.swift` in Xcode and run the Notchbox executable scheme. `--background` launches without opening the panel.
 
 ## Use
 

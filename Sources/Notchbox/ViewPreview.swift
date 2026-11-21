@@ -4,6 +4,8 @@ import AppKit
 @MainActor
 enum ViewPreview {
     static func render(controller: AppController) async {
+        // Keep the panel visible if another app takes focus during the export.
+        if !controller.isPinned { controller.togglePin() }
         let output = ProcessInfo.processInfo.environment["NOTCHBOX_PREVIEW_PATH"] ?? "/tmp/notchbox-preview.png"
         let working = FileManager.default.currentDirectoryPath
         let inside = NSPoint(x: controller.panel.frame.midX, y: controller.panel.frame.minY + 30)

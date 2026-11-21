@@ -48,7 +48,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate, NS
         panel.isReleasedWhenClosed = false
         panel.backgroundColor = .clear
         panel.isOpaque = false
-        panel.hasShadow = true
+        // Keep the display edge seamless: the native shadow can add a light rim.
+        panel.hasShadow = false
         panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         panel.hidesOnDeactivate = false
@@ -422,6 +423,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate, NS
             anchor.isReleasedWhenClosed = false
             anchor.backgroundColor = .clear
             anchor.isOpaque = false
+            anchor.hasShadow = false
             anchor.level = panel.level
             anchor.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
             anchor.ignoresMouseEvents = true
