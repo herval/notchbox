@@ -21,7 +21,7 @@ quitting ends its terminal sessions. Update with `brew update` then
 
 ## Build and run
 
-Requires macOS 14+ and Xcode 26 with Swift 6.2 or later.
+Requires macOS 14+ and Xcode 26 with Swift 6.2 or later. Run `make` to list the everyday commands (`make run`, `make test`, `make install-app`, …); they wrap the scripts below.
 
 ```sh
 Scripts/build-app.sh
