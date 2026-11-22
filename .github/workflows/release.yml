@@ -1,105 +1,43 @@
-name: Release
+name: Publish Homebrew cask
 
 on:
-  push:
-    tags: ["v*"]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published release tag to sync to the tap (vX.Y.Z)
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: release
+  group: homebrew
   cancel-in-progress: false
 
 jobs:
-  release:
-    runs-on: macos-26
-    permissions:
-      contents: write
+  homebrew:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - name: Check version and credentials before building
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          HOMEBREW_TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
-        run: |
-          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)
-          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$GITHUB_REF_NAME" == "v$version" ]] ||
-            { echo "::error::Tag must match CFBundleShortVersionString ($version) in Resources/Info.plist"; exit 1; }
-          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID HOMEBREW_TAP_DEPLOY_KEY; do
-            [[ -n "${!name}" ]] || { echo "::error::Missing $name; run Scripts/release-secrets.sh"; exit 1; }
-          done
-          xcrun notarytool history --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" >/dev/null
-
-      - name: Import Developer ID into a temporary keychain
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-        run: |
-          keychain="$RUNNER_TEMP/notchbox-signing.keychain-db"
-          keychain_password=$(openssl rand -hex 32)
-          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/notchbox-cert.p12"
-          security create-keychain -p "$keychain_password" "$keychain"
-          security set-keychain-settings -lut 21600 "$keychain"
-          security unlock-keychain -p "$keychain_password" "$keychain"
-          security import "$RUNNER_TEMP/notchbox-cert.p12" -k "$keychain" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" >/dev/null
-          security list-keychains -d user -s "$keychain"
-          security find-identity -v -p codesigning "$keychain" | grep -F "\"$APPLE_SIGNING_IDENTITY\""
-          rm -f "$RUNNER_TEMP/notchbox-cert.p12"
-
-      - name: Unit tests
-        run: swift test --force-resolved-versions
-
-      - name: Build, sign, notarize and package the universal app
-        env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: Scripts/package-release.sh "$GITHUB_REF_NAME"
-
-      - name: Validate the packaged app and cask
-        run: Scripts/check-release.sh "$GITHUB_REF_NAME" build/release --notarized
-
-      - name: Upload to a draft, then publish
+      - name: Check the published release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          if draft=$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft); then
-            [[ "$draft" == true ]] || { echo "::error::Refusing to replace a published release"; exit 1; }
-          else
-            gh release create "$GITHUB_REF_NAME" --verify-tag --draft --title "Notchbox $GITHUB_REF_NAME" \
-              --notes 'Install with `brew install --cask herval/tap/notchbox`, or download the universal ZIP below and drag Notchbox.app to Applications. Requires macOS 14 or later. Quit Notchbox before upgrading; quitting ends its terminal sessions.'
-          fi
-          gh release upload "$GITHUB_REF_NAME" build/release/notchbox_*_universal.zip build/release/*.sha256 --clobber
-          gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Expected a vX.Y.Z tag"; exit 1; }
+          [[ "$(gh release view "$RELEASE_TAG" --json isDraft,isPrerelease --jq '.isDraft or .isPrerelease')" == false ]] ||
+            { echo "::error::Expected a published stable release"; exit 1; }
+          [[ "$(gh release view --json tagName --jq .tagName)" == "$RELEASE_TAG" ]] ||
+            { echo "::error::Refusing to point the tap at a release older than latest"; exit 1; }
 
-      - name: Remove signing credentials
-        if: always()
-        run: |
-          if [[ -f "$RUNNER_TEMP/notchbox-signing.keychain-db" ]]; then
-            security delete-keychain "$RUNNER_TEMP/notchbox-signing.keychain-db"
-          fi
-          rm -f "$RUNNER_TEMP/notchbox-cert.p12"
-
-  homebrew:
-    needs: release
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
       - uses: actions/checkout@v7
         with:
           repository: herval/homebrew-tap
@@ -112,10 +50,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          archive="notchbox_${GITHUB_REF_NAME#v}_universal.zip"
-          gh release download "$GITHUB_REF_NAME" --pattern "$archive" --dir "$RUNNER_TEMP"
+          archive="notchbox_${RELEASE_TAG#v}_universal.zip"
+          gh release download "$RELEASE_TAG" --pattern "$archive" --pattern "$archive.sha256" --dir "$RUNNER_TEMP"
+          (cd "$RUNNER_TEMP" && shasum -a 256 -c "$archive.sha256")
           mkdir -p tap/Casks
-          Scripts/render-cask.sh "$GITHUB_REF_NAME" "$RUNNER_TEMP/$archive" > tap/Casks/notchbox.rb
+          Scripts/render-cask.sh "$RELEASE_TAG" "$RUNNER_TEMP/$archive" > tap/Casks/notchbox.rb
           ruby -c tap/Casks/notchbox.rb
 
       - name: Push the cask to herval/homebrew-tap
@@ -128,8 +67,7 @@ jobs:
             echo "Cask already up to date"
             exit 0
           fi
-          git commit -m "notchbox ${GITHUB_REF_NAME#v}"
-          # Another app may update this shared tap while this job is building.
+          git commit -m "notchbox ${RELEASE_TAG#v}"
           for attempt in 1 2 3; do
             git pull --rebase origin main
             if git push origin HEAD:main; then exit 0; fi

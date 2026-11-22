@@ -1,6 +1,6 @@
 #!/bin/bash
-# A normal run requires Developer ID + notarization credentials. --unsigned is
-# for packaging checks only; its output goes in a separate directory.
+# Sign with this Mac's Keychain identity and notarize with a Keychain profile.
+# --unsigned is for packaging checks; its output goes in a separate directory.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -22,20 +22,12 @@ fi
 
 notary_args=()
 if [[ "$unsigned" == false ]]; then
-    if [[ "${APPLE_SIGNING_IDENTITY:-}" != "Developer ID Application: "* ]]; then
-        echo "Set APPLE_SIGNING_IDENTITY to a Developer ID Application identity (see docs/releasing.md)" >&2
+    signing_identity="$(Scripts/signing-identity.sh)"
+    profile="${NOTARYTOOL_PROFILE:-notchbox}"
+    notary_args=(--keychain-profile "$profile")
+    if ! xcrun notarytool history "${notary_args[@]}" >/dev/null; then
+        echo "Configure the '$profile' Keychain profile with Scripts/release-secrets.sh first" >&2
         exit 1
-    fi
-    if [[ -n "${NOTARYTOOL_PROFILE:-}" ]]; then
-        notary_args=(--keychain-profile "$NOTARYTOOL_PROFILE")
-    else
-        for name in APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
-            if [[ -z "${!name:-}" ]]; then
-                echo "Set $name or use NOTARYTOOL_PROFILE (see docs/releasing.md)" >&2
-                exit 1
-            fi
-        done
-        notary_args=(--apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID")
     fi
 fi
 
@@ -48,7 +40,7 @@ app="$staging/Notchbox.app"
 Scripts/build-app.sh release "$app" universal
 
 if [[ "$unsigned" == false ]]; then
-    codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$app"
+    codesign --force --options runtime --timestamp --sign "$signing_identity" "$app"
     codesign --verify --deep --strict --verbose=2 "$app"
     ditto -c -k --sequesterRsrc --keepParent "$app" "$staging/submission.zip"
     notary_exit=0

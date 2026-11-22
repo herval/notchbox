@@ -66,10 +66,11 @@ See [product research and interaction decisions](docs/inspiration.md).
 
 ## Publishing
 
-Pushing a matching `vX.Y.Z` tag builds a universal app, signs and notarizes it,
-publishes its ZIP and checksum to GitHub Releases, and updates `notchbox` in
+Run `Scripts/publish-release.sh vX.Y.Z` on the Mac with your Developer ID identity.
+It builds a universal app, signs directly with Keychain, notarizes it, and publishes
+its ZIP and checksum to GitHub Releases. GitHub then updates `notchbox` in
 `herval/homebrew-tap`. See [release setup and publishing](docs/releasing.md) for
-one-time credentials, packaging checks, and recovery instructions.
+Keychain setup, packaging checks, and recovery instructions.
 
 For a view-only image export during development:
 

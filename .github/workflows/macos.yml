@@ -22,6 +22,8 @@ jobs:
           persist-credentials: false
       - name: Check shell syntax
         run: for script in Scripts/*.sh; do bash -n "$script"; done
+      - name: Publishing boundary checks
+        run: python3 Scripts/test-publish-release.py
       - name: Unit tests
         run: swift test --force-resolved-versions
       - name: Build an unsigned universal package
