@@ -1,0 +1,37 @@
+name: macOS checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Check shell syntax
+        run: for script in Scripts/*.sh; do bash -n "$script"; done
+      - name: Unit tests
+        run: swift test --force-resolved-versions
+      - name: Build an unsigned universal package
+        run: |
+          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)
+          Scripts/package-release.sh --unsigned "v$version"
+          Scripts/check-release.sh "v$version" build/release-unsigned
+      - uses: actions/upload-artifact@v7
+        with:
+          name: notchbox-unsigned-packaging-check
+          path: build/release-unsigned/*.zip
+          if-no-files-found: error
+          retention-days: 7

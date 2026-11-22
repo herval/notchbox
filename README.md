@@ -4,6 +4,21 @@ A little terminal, tucked into your Mac's notch. Hover to open, run a command, g
 
 Native AppKit + SwiftTerm. Independent terminal tabs. Your usual login shell and tools. Terminal sessions keep running when the panel is hidden.
 
+## Install
+
+Once the first release is published, install from [herval's tap](https://github.com/herval/homebrew-tap):
+
+```sh
+brew install --cask herval/tap/notchbox
+open -a Notchbox
+```
+
+The release supports Apple silicon and Intel Macs running macOS 14 or later. You
+can also download the universal ZIP from [Releases](https://github.com/herval/notchbox/releases),
+unzip it, and drag `Notchbox.app` into Applications. Quit Notchbox before upgrading;
+quitting ends its terminal sessions. Update with `brew update` then
+`brew upgrade --cask herval/tap/notchbox`.
+
 ## Build and run
 
 Requires macOS 14+ and Xcode 26 with Swift 6.2 or later.
@@ -13,7 +28,7 @@ Scripts/build-app.sh
 open build/Notchbox.app
 ```
 
-The script creates a locally ad-hoc-signed app at `build/Notchbox.app`. Drag it into Applications if desired. It is a menu-bar app, so there is no Dock icon. The release build is for the Mac running the script. A public distribution still needs a Developer ID signature and notarization.
+The script creates a locally ad-hoc-signed app at `build/Notchbox.app`. Drag it into Applications if desired. It is a menu-bar app, so there is no Dock icon. By default, it builds for the Mac running the script. Add `universal` as the third argument to build for both Apple silicon and Intel: `Scripts/build-app.sh release "$PWD/build/Notchbox-Universal.app" universal`.
 
 For a faster development build, use `Scripts/build-app.sh debug`. To build an update without replacing a running app, pass a separate output path: `Scripts/build-app.sh release "$PWD/build/Notchbox-0.1.5.app"`. Quit the current app before opening the update; its terminal sessions end on Quit. You can also open `Package.swift` in Xcode and run the Notchbox executable scheme. `--background` launches without opening the panel.
 
@@ -48,6 +63,13 @@ Scripts/test-app.sh release
 Run the integration check in a logged-in graphical macOS session. The script builds a separate test app with its own bundle ID and Control–Option–Shift–backtick shortcut, leaving the running app and its sessions alone. It launches real shells, checks PTY behavior and tab isolation, resizing, hover sampling without mouse events, typing immediately after hover, pointer jitter and re-entry, focused auto-hide and focus restoration, immediate exit during reveal and reopening during close, pinning, upward slide movement, interrupted animations, and process cleanup, then quits. Results are written to `build/smoke-results.json` (override with `NOTCHBOX_SMOKE_REPORT`). A disposable native fixture app verifies that hiding restores its focused text field, a terminated destination stays closed, tab changes retain the original focus destination, and switching apps during reveal does not steal focus back. Keyboard and focus checks are reported as not checked if native focus is unavailable. The fixture changes only its own shells' environments and directories; it does not move the desktop pointer.
 
 See [product research and interaction decisions](docs/inspiration.md).
+
+## Publishing
+
+Pushing a matching `vX.Y.Z` tag builds a universal app, signs and notarizes it,
+publishes its ZIP and checksum to GitHub Releases, and updates `notchbox` in
+`herval/homebrew-tap`. See [release setup and publishing](docs/releasing.md) for
+one-time credentials, packaging checks, and recovery instructions.
 
 For a view-only image export during development:
 
