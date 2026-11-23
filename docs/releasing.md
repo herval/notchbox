@@ -47,9 +47,11 @@ are used locally and are not GitHub secrets.
 3. On the signing Mac, run:
 
    ```sh
-   Scripts/publish-release.sh vX.Y.Z
+   make release
    ```
 
+`make release` reads the version from `Resources/Info.plist` and invokes
+`Scripts/publish-release.sh vX.Y.Z` with that version.
 The publisher requires clean tracked files and no untracked build inputs. It
 rejects a mismatched version, a tag pointing at another commit, or a version
 already published. It checks the Keychain setup and tap secret, runs the unit
@@ -116,8 +118,7 @@ Mac session.
 To make a signed/notarized package locally for review, without publishing:
 
 ```sh
-Scripts/package-release.sh vX.Y.Z
-Scripts/check-release.sh vX.Y.Z build/release --notarized
+make package-signed
 ```
 
 The ZIP / cask arrangement follows the [Homebrew Cask Cookbook](https://docs.brew.sh/Cask-Cookbook).

@@ -1,7 +1,7 @@
 # Notchbox: everyday commands. Run `make` to list them.
 
 .DEFAULT_GOAL := help
-.PHONY: help install run preview build package release release-secrets install-app check test test-app clean
+.PHONY: help install run preview build package package-signed release release-secrets install-app check test test-app clean
 
 APP := build/Notchbox.app
 BUNDLE_ID := dev.littleguys.notchbox
@@ -31,11 +31,14 @@ package: ## Package an unsigned universal ZIP and check it, as CI does (never pu
 	Scripts/package-release.sh --unsigned v$(VERSION)
 	Scripts/check-release.sh v$(VERSION) build/release-unsigned
 
-release: ## Sign, notarize and package the ZIP locally (needs the credentials in docs/releasing.md)
+package-signed: ## Sign, notarize and check a local ZIP without publishing
 	Scripts/package-release.sh v$(VERSION)
 	Scripts/check-release.sh v$(VERSION) build/release --notarized
 
-release-secrets: ## One-time: put the signing, notarization and tap credentials in GitHub secrets
+release: ## Publish the Info.plist version to GitHub Releases and update the Homebrew tap
+	Scripts/publish-release.sh v$(VERSION)
+
+release-secrets: ## One-time: configure Keychain notarization and the GitHub tap secret
 	Scripts/release-secrets.sh
 
 install-app: ## Build Notchbox.app for this Mac and put it in /Applications, quitting a running copy first

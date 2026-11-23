@@ -66,7 +66,8 @@ See [product research and interaction decisions](docs/inspiration.md).
 
 ## Publishing
 
-Run `Scripts/publish-release.sh vX.Y.Z` on the Mac with your Developer ID identity.
+Run `make release` on the Mac with your Developer ID identity. It reads the version
+from `Resources/Info.plist`.
 It builds a universal app, signs directly with Keychain, notarizes it, and publishes
 its ZIP and checksum to GitHub Releases. GitHub then updates `notchbox` in
 `herval/homebrew-tap`. See [release setup and publishing](docs/releasing.md) for
